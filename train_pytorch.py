@@ -27,5 +27,6 @@ print(f"Training took {t1 - t0:.2f} seconds")
 
 print("Testing the model")
 tokenizer = BasicTokenizer()
-tokenizer.load(prefix)
-print(tokenizer.decode(tokenizer.encode(text)) == text)
+tokenizer.load(prefix + ".model")
+assert(tokenizer.decode(tokenizer.encode(text)) == text)
+print("Success")
