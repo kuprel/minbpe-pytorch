@@ -1,4 +1,4 @@
-# minbpe-cuda
+# minbpe-pytorch
 
 Minimal, clean code for the (byte-level) Byte Pair Encoding (BPE) algorithm commonly used in LLM tokenization. The BPE algorithm is "byte-level" because it runs on UTF-8 encoded strings.
 
@@ -6,7 +6,7 @@ This uses PyTorch to add GPU training support to Andrej Karpathy's [minbpe](http
 
 ## Usage
 
-This script is contained in `train_cuda.py`
+This script is contained in `train_pytorch.py`
 
 ```python
 import os
@@ -23,7 +23,7 @@ t0 = time.time()
 
 # construct the Tokenizer object and kick off verbose training
 tokenizer = BasicTokenizer()
-tokenizer.train_cuda(text, 512, verbose=True)
+tokenizer.train_pytorch(text, 512, verbose=True)
 # writes two files in the models directory: name.model, and name.vocab
 prefix = os.path.join("models", "basic")
 tokenizer.save(prefix)

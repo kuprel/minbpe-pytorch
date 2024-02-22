@@ -16,7 +16,7 @@ t0 = time.time()
 
 # construct the Tokenizer object and kick off verbose training
 tokenizer = BasicTokenizer()
-tokenizer.train_cuda(text, 512, verbose=True)
+tokenizer.train_pytorch(text, 512, verbose=True)
 # writes two files in the models directory: name.model, and name.vocab
 prefix = os.path.join("models", "basic")
 tokenizer.save(prefix)
