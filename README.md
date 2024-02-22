@@ -2,7 +2,7 @@
 
 Minimal, clean code for the (byte-level) Byte Pair Encoding (BPE) algorithm commonly used in LLM tokenization. The BPE algorithm is "byte-level" because it runs on UTF-8 encoded strings.
 
-This uses PyTorch to add GPU training support to Andrej Karpathy's [minbpe](https://github.com/karpathy/minbpe).  It takes 148 seconds on an RTX4090 to train the `BasicTokenizer` with a vocab_size of 512 on 307MB of Enron emails.  The original code takes TBD on an M2 MacBook Air to do this.
+This adds PyTorch/CUDA training support to Andrej Karpathy's [minbpe](https://github.com/karpathy/minbpe).  It takes 148 seconds on an RTX4090 to train the `BasicTokenizer` with a vocab_size of 512 on 307MB of Enron emails.  The original code takes TBD on an M2 MacBook Air to do this.
 
 ## Usage
 
@@ -33,11 +33,29 @@ t1 = time.time()
 print(f"Training took {t1 - t0:.2f} seconds")
 ```
 
+## Repeated Characters Bug
+
+The vectorized `merge` method from the original minbpe is implemented in PyTorch as follows:
+
+    ```python
+    # create a mask for the pair
+    mask = torch.all(pairs == pair, dim=1)
+    # append a False to the mask to make it the same length as ids
+    mask = torch.cat((mask, torch.tensor([False]).cuda()))
+    # change the first element of every occurrence of the pair to the new id
+    ids[mask] = i + 256
+    # remove the second element of every occurrence of the pair
+    ids = ids[~torch.roll(mask, 1, 0)]
+    ```
+
+This results in undesired behavior when a character is repeated more than 2 times.  For example, 'aaa' is not handled properly since there are 2 pairs of 'aa' in the triple, (aa)a and a(aa).  What happens is that all repeated characters are replaced with one token, i.e if X = aa then aaa -> X not Xa.  This bug doesn't seem to have much effect on training the vocab though.
+
 ## TODO
 
-- Address what happens with repeated characters, e.g. "aaabdaaabac"
-- Add GPU support for `encode` method
 - Train on Project Gutenberg
+- Add GPU support for `encode` method
+- Add MPS support for MacBooks, currently breaks for torch.unique
+- Fix repeated characters bug?
 
 ## License
 
