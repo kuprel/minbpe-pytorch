@@ -5,3 +5,4 @@ models/**/*
 *.model
 *.vocab
 tests/enron*
+parse_enron.py

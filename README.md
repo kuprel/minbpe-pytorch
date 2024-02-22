@@ -4,9 +4,9 @@ Minimal, clean code for the (byte-level) Byte Pair Encoding (BPE) algorithm comm
 
 This uses PyTorch to add GPU training support to Andrej Karpathy's [minbpe](https://github.com/karpathy/minbpe).  It takes 148 seconds on an RTX4090 to train the `BasicTokenizer` with a vocab_size of 512 on 307MB of Enron emails.  The original code takes TBD on an M2 MacBook Air to do this.
 
-## quick start
+## Usage
 
-This script is in `train_cuda.py`
+This script is contained in `train_cuda.py`
 
 ```python
 import os
@@ -37,6 +37,7 @@ print(f"Training took {t1 - t0:.2f} seconds")
 
 - Address what happens with repeated characters, e.g. "aaabdaaabac"
 - Add GPU support for `encode` method
+- Train on Project Gutenberg
 
 ## License
 
