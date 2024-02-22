@@ -78,6 +78,9 @@ class BasicTokenizer(Tokenizer):
 
             merge_pairs[i] = pair
 
+            if verbose:
+                print(f"merge {i+1}/{num_merges}: {pair} -> {i + 256} had {count} occurrences")
+
         self.merges = {
             tuple(pair.tolist()): j + 256
             for j, pair in enumerate(merge_pairs)
