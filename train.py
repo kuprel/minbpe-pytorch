@@ -24,3 +24,8 @@ tokenizer.save(prefix)
 t1 = time.time()
 
 print(f"Training took {t1 - t0:.2f} seconds")
+
+print("Testing the model")
+tokenizer = BasicTokenizer()
+tokenizer.load(prefix + ".model")
+print(tokenizer.decode(tokenizer.encode(text)) == text)

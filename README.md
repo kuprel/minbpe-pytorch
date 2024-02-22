@@ -35,7 +35,7 @@ print(f"Training took {t1 - t0:.2f} seconds")
 
 ## Repeated Characters Bug
 
-The vectorized `merge` method from the original minbpe is implemented in PyTorch as follows:
+The `merge` method is vectorized in PyTorch as follows:
 
 ```python
 # create a mask for the pair
