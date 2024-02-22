@@ -2,7 +2,7 @@
 
 Minimal, clean code for the (byte-level) Byte Pair Encoding (BPE) algorithm commonly used in LLM tokenization. The BPE algorithm is "byte-level" because it runs on UTF-8 encoded strings.
 
-This add's GPU training support using PyTorch to Andrej Karpathy's [minbpe](https://github.com/karpathy/minbpe).  It takes 148 seconds on an RTX4090 to train the `BasicTokenizer` with a vocab_size of 512 on 307MB of Enron emails.  The original code takes TBD on an M2 MacBook Air to do this.
+This uses PyTorch to add GPU training support to Andrej Karpathy's [minbpe](https://github.com/karpathy/minbpe).  It takes 148 seconds on an RTX4090 to train the `BasicTokenizer` with a vocab_size of 512 on 307MB of Enron emails.  The original code takes TBD on an M2 MacBook Air to do this.
 
 ## quick start
 
@@ -35,8 +35,8 @@ print(f"Training took {t1 - t0:.2f} seconds")
 
 ## TODO
 
-Address what happens with repeated characters, e.g. "aaabdaaabac"
-Add GPU support for `encode` method
+- Address what happens with repeated characters, e.g. "aaabdaaabac"
+- Add GPU support for `encode` method
 
 ## License
 
