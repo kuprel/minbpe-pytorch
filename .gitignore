@@ -4,3 +4,4 @@ models/**/*
 *.pytest_cache
 *.model
 *.vocab
+tests/enron*
