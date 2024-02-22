@@ -37,16 +37,16 @@ print(f"Training took {t1 - t0:.2f} seconds")
 
 The vectorized `merge` method from the original minbpe is implemented in PyTorch as follows:
 
-    ```python
-    # create a mask for the pair
-    mask = torch.all(pairs == pair, dim=1)
-    # append a False to the mask to make it the same length as ids
-    mask = torch.cat((mask, torch.tensor([False]).cuda()))
-    # change the first element of every occurrence of the pair to the new id
-    ids[mask] = i + 256
-    # remove the second element of every occurrence of the pair
-    ids = ids[~torch.roll(mask, 1, 0)]
-    ```
+```python
+# create a mask for the pair
+mask = torch.all(pairs == pair, dim=1)
+# append a False to the mask to make it the same length as ids
+mask = torch.cat((mask, torch.tensor([False]).cuda()))
+# change the first element of every occurrence of the pair to the new id
+ids[mask] = i + 256
+# remove the second element of every occurrence of the pair
+ids = ids[~torch.roll(mask, 1, 0)]
+```
 
 This results in undesired behavior when a character is repeated more than 2 times.  For example, 'aaa' is not handled properly since there are 2 pairs of 'aa' in the triple, (aa)a and a(aa).  What happens is that all repeated characters are replaced with one token, i.e if X = aa then aaa -> X not Xa.  This bug doesn't seem to have much effect on training the vocab though.
 
