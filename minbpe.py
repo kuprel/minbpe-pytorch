@@ -91,7 +91,7 @@ class BasicTokenizer:
         self.merges = merges # used in encode()
         self.vocab = vocab   # used in decode()
 
-    def train_pytorch(self, text: str, vocab_size: int, verbose=False, device='cpu'):
+    def train_pytorch(self, text: str, vocab_size: int, verbose=False, device='cuda'):
         assert vocab_size >= 256
         num_merges = vocab_size - 256
 
