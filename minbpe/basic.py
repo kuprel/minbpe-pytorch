@@ -49,7 +49,7 @@ class BasicTokenizer(Tokenizer):
         self.merges = merges # used in encode()
         self.vocab = vocab   # used in decode()
 
-    def train_gpu(self, text: str, vocab_size: int, verbose=False):
+    def train_cuda(self, text: str, vocab_size: int, verbose=False):
         assert vocab_size >= 256
         num_merges = vocab_size - 256
 
