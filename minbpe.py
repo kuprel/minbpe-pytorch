@@ -91,7 +91,7 @@ class BasicTokenizer:
         self.merges = merges # used in encode()
         self.vocab = vocab   # used in decode()
 
-    def train_pytorch(self, text: str, vocab_size: int, verbose=False):
+    def train_pytorch(self, text: str, vocab_size: int, verbose=False, device='cpu'):
         assert vocab_size >= 256
         num_merges = vocab_size - 256
 
@@ -99,8 +99,9 @@ class BasicTokenizer:
         text_bytes = text.encode("utf-8") # raw bytes
         ids = list(text_bytes) # list of integers in range 0..255
 
-        ids = torch.tensor(ids, dtype=torch.int64).cuda()
-        merge_pairs = torch.zeros((num_merges, 2), dtype=torch.int64).cuda()
+        ids = torch.tensor(ids, dtype=torch.int64, device=device)
+        merge_pairs = torch.zeros((num_merges, 2), dtype=torch.int64, device=device)
+        false_tensor = torch.tensor([False], dtype=torch.bool, device=device)
 
         for i in range(num_merges):
             pairs = torch.stack((ids[:-1], ids[1:]), dim=1)
@@ -112,7 +113,7 @@ class BasicTokenizer:
             # create a mask for the pair
             mask = torch.all(pairs == pair, dim=1)
             # append a False to the mask to make it the same length as ids
-            mask = torch.cat((mask, torch.tensor([False]).cuda()))
+            mask = torch.cat((mask, false_tensor))
             # change the first element of every occurrence of the pair to the new id
             ids[mask] = i + 256
             # remove the second element of every occurrence of the pair

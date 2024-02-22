@@ -54,7 +54,7 @@ This results in undesired behavior when a character is repeated more than 2 time
 
 - Train on Project Gutenberg
 - Add GPU support for `encode` method
-- Add MPS support for MacBooks, currently breaks for torch.unique
+- Add MPS support for MacBooks, currently breaks for `torch.unique`
 - Fix repeated characters bug?
 
 ## License
