@@ -2,7 +2,7 @@
 
 Minimal, clean code for the (byte-level) Byte Pair Encoding (BPE) algorithm commonly used in LLM tokenization. The BPE algorithm is "byte-level" because it runs on UTF-8 encoded strings.
 
-This adds PyTorch/CUDA training support to Andrej Karpathy's [minbpe](https://github.com/karpathy/minbpe).  It takes 148 seconds on an RTX4090 to train the `BasicTokenizer` with a vocab_size of 512 on 307MB of Enron emails.  The original code takes TBD on an M2 MacBook Air to do this.
+This adds PyTorch/CUDA training support to Andrej Karpathy's [minbpe](https://github.com/karpathy/minbpe).  It takes 2min 28sec (148 seconds) on an RTX4090 to train the `BasicTokenizer` with a vocab_size of 512 on 307MB of Enron emails.  The original code takes 2hrs 15min (8076 seconds) on an M2 Air with Python 3.11 to do this.  That is a 55x speedup.
 
 ## Usage
 
@@ -23,7 +23,7 @@ t0 = time.time()
 
 # construct the Tokenizer object and kick off verbose training
 tokenizer = BasicTokenizer()
-tokenizer.train_pytorch(text, 512, verbose=True)
+tokenizer.train_pytorch(text, 512, verbose=True, device="cuda")
 # writes two files in the models directory: name.model, and name.vocab
 prefix = os.path.join("models", "basic")
 tokenizer.save(prefix)
@@ -31,6 +31,12 @@ tokenizer.save(prefix)
 t1 = time.time()
 
 print(f"Training took {t1 - t0:.2f} seconds")
+
+print("Testing the model")
+tok = BasicTokenizer()
+tok.load(prefix + ".model")
+assert(tok.decode(tok.encode(text)) == text)
+print("Success")
 ```
 
 ## Repeated Characters Bug
@@ -53,8 +59,8 @@ This results in undesired behavior when a character is repeated more than 2 time
 ## TODO
 
 - Train on Project Gutenberg
-- Add GPU support for `encode` method
-- Add MPS support for MacBooks, currently breaks for `torch.unique`
+- Add PyTorch support for `encode` method
+- Add MPS device support for MacBooks, currently breaks for `torch.unique`
 - Fix repeated characters bug?
 
 ## License
