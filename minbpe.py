@@ -1,14 +1,5 @@
-"""
-Contains the base Tokenizer class and a few common helper functions.
-The base class also contains the (common) save/load functionality.
-It would be possible to be a lot more strict about the interface and
-e.g. isolating all regex/pattern parts to the RegexTokenizer, but
-some concessions are made for simplicity.
-"""
 import unicodedata
-
-# -----------------------------------------------------------------------------
-# a few helper functions useful for both BasicTokenizer and RegexTokenizer
+import torch
 
 def get_stats(ids, counts=None):
     """
@@ -60,11 +51,7 @@ def render_token(t: bytes) -> str:
     s = replace_control_characters(s)
     return s
 
-# -----------------------------------------------------------------------------
-# the base Tokenizer class
-
-class Tokenizer:
-    """Base class for Tokenizers"""
+class BasicTokenizer:
 
     def __init__(self):
         # default: vocab size of 256 (all bytes), no merges, no patterns
@@ -74,16 +61,106 @@ class Tokenizer:
         self.vocab = self._build_vocab() # int -> bytes
 
     def train(self, text, vocab_size, verbose=False):
-        # Tokenizer can train a vocabulary of size vocab_size from text
-        raise NotImplementedError
+        assert vocab_size >= 256
+        num_merges = vocab_size - 256
 
-    def encode(self, text):
-        # Tokenizer can encode a string into a list of integers
-        raise NotImplementedError
+        # input text preprocessing
+        text_bytes = text.encode("utf-8") # raw bytes
+        ids = list(text_bytes) # list of integers in range 0..255
+
+        # iteratively merge the most common pairs to create new tokens
+        merges = {} # (int, int) -> int
+        vocab = {idx: bytes([idx]) for idx in range(256)} # int -> bytes
+        for i in range(num_merges):
+            # count up the number of times every consecutive pair appears
+            stats = get_stats(ids)
+            # find the pair with the highest count
+            pair = max(stats, key=stats.get)
+            # mint a new token: assign it the next available id
+            idx = 256 + i
+            # replace all occurrences of pair in ids with idx
+            ids = merge(ids, pair, idx)
+            # save the merge
+            merges[pair] = idx
+            vocab[idx] = vocab[pair[0]] + vocab[pair[1]]
+            # prints
+            if verbose:
+                print(f"merge {i+1}/{num_merges}: {pair} -> {idx} ({vocab[idx]}) had {stats[pair]} occurrences")
+
+        # save class variables
+        self.merges = merges # used in encode()
+        self.vocab = vocab   # used in decode()
+
+    def train_pytorch(self, text: str, vocab_size: int, verbose=False):
+        assert vocab_size >= 256
+        num_merges = vocab_size - 256
+
+        # input text preprocessing
+        text_bytes = text.encode("utf-8") # raw bytes
+        ids = list(text_bytes) # list of integers in range 0..255
+
+        ids = torch.tensor(ids, dtype=torch.int64).cuda()
+        merge_pairs = torch.zeros((num_merges, 2), dtype=torch.int64).cuda()
+
+        for i in range(num_merges):
+            pairs = torch.stack((ids[:-1], ids[1:]), dim=1)
+            unique, counts = torch.unique(pairs, return_counts=True, dim=0)
+            pair_index = torch.argmax(counts)
+            pair = unique[pair_index]
+            count = counts[pair_index]
+
+            # create a mask for the pair
+            mask = torch.all(pairs == pair, dim=1)
+            # append a False to the mask to make it the same length as ids
+            mask = torch.cat((mask, torch.tensor([False]).cuda()))
+            # change the first element of every occurrence of the pair to the new id
+            ids[mask] = i + 256
+            # remove the second element of every occurrence of the pair
+            ids = ids[~torch.roll(mask, 1, 0)]
+
+            merge_pairs[i] = pair
+
+            if verbose:
+                print(f"merge {i+1}/{num_merges}: {tuple(pair.tolist())} -> {i + 256} had {count} occurrences")
+
+        self.merges = {
+            tuple(pair.tolist()): j + 256
+            for j, pair in enumerate(merge_pairs)
+        }
+
+        vocab = {idx: bytes([idx]) for idx in range(256)} # int -> bytes
+        for i in range(num_merges):
+            pair = tuple(merge_pairs[i].tolist())
+            idx = 256 + i
+            vocab[idx] = vocab[pair[0]] + vocab[pair[1]]
+            if verbose:
+                print(f"merge {i+1}/{num_merges}: {pair} -> {idx} ({vocab[idx]})")
+        self.vocab = vocab
 
     def decode(self, ids):
-        # Tokenizer can decode a list of integers into a string
-        raise NotImplementedError
+        # given ids (list of integers), return Python string
+        text_bytes = b"".join(self.vocab[idx] for idx in ids)
+        text = text_bytes.decode("utf-8", errors="replace")
+        return text
+
+    def encode(self, text):
+        # given a string text, return the token ids
+        text_bytes = text.encode("utf-8") # raw bytes
+        ids = list(text_bytes) # list of integers in range 0..255
+        while len(ids) >= 2:
+            # find the pair with the lowest merge index
+            stats = get_stats(ids)
+            pair = min(stats, key=lambda p: self.merges.get(p, float("inf")))
+            # subtle: if there are no more merges available, the key will
+            # result in an inf for every single pair, and the min will be
+            # just the first pair in the list, arbitrarily
+            # we can detect this terminating case by a membership check
+            if pair not in self.merges:
+                break # nothing else can be merged anymore
+            # otherwise let's merge the best pair (lowest merge index)
+            idx = self.merges[pair]
+            ids = merge(ids, pair, idx)
+        return ids
 
     def _build_vocab(self):
         # vocab is simply and deterministically derived from merges
