@@ -99,8 +99,9 @@ class BasicTokenizer:
         text_bytes = text.encode("utf-8") # raw bytes
         ids = list(text_bytes) # list of integers in range 0..255
 
-        ids = torch.tensor(ids, dtype=torch.int32, device=device)
-        merge_pairs = torch.zeros((num_merges, 2), dtype=torch.int32, device=device)
+        int_type = torch.int16 if vocab_size <= 2**15 else torch.int32
+        ids = torch.tensor(ids, dtype=int_type, device=device)
+        merge_pairs = torch.zeros((num_merges, 2), dtype=int_type, device=device)
         false_tensor = torch.tensor([False], dtype=torch.bool, device=device)
 
         for i in range(num_merges):
