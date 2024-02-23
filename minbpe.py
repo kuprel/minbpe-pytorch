@@ -101,7 +101,7 @@ class BasicTokenizer:
 
         int_type = torch.int16 if vocab_size <= 2**15 else torch.int32
         ids = torch.tensor(ids, dtype=int_type, device=device)
-        merge_pairs = torch.zeros((num_merges, 2), dtype=int_type, device=device)
+        merges = torch.zeros((num_merges, 2), dtype=int_type, device=device)
         false_tensor = torch.tensor([False], dtype=torch.bool, device=device)
 
         for i in range(num_merges):
@@ -120,20 +120,20 @@ class BasicTokenizer:
             # remove the second element of every occurrence of the pair
             ids = ids[~torch.roll(mask, 1, 0)]
 
-            merge_pairs[i] = pair
+            merges[i] = pair
 
             if verbose:
                 print(f"merge {i+1}/{num_merges}: {tuple(pair.tolist())} -> {i + 256} had {count} occurrences")
 
-        self.merges = {
-            tuple(pair.tolist()): j + 256
-            for j, pair in enumerate(merge_pairs)
-        }
+        merges = merges.cpu().numpy()
+        merges = [tuple(pair) for pair in merges]
+
+        self.merges = {pair: j + 256 for j, pair in enumerate(merges)}
 
         vocab = {idx: bytes([idx]) for idx in range(256)} # int -> bytes
         for i in range(num_merges):
-            pair = tuple(merge_pairs[i].tolist())
             idx = 256 + i
+            pair = merges[i]
             vocab[idx] = vocab[pair[0]] + vocab[pair[1]]
             if verbose:
                 print(f"merge {i+1}/{num_merges}: {pair} -> {idx} ({vocab[idx]})")
