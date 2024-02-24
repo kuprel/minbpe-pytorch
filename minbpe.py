@@ -124,7 +124,7 @@ class BasicTokenizer:
             pair_index = is_present.nonzero()[0]
             pair = merges[pair_index]
             idx = pair_index.to(ids.dtype) + 256
-            ids = merge(ids, pair, idx)
+            ids = merge(ids, pair, idx, is_train=False)
 
         return ids.cpu().tolist()
 
