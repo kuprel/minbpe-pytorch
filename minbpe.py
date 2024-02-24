@@ -10,18 +10,18 @@ def merge(ids: Tensor, pair: Tensor, idx: int):
     """
     # create a mask for the first element of every matching pair
     pairs = torch.stack((ids[:-1], ids[1:]), dim=1)
-    is_first_in_pair = (pairs == pair).all(axis=1)
+    is_pair = (pairs == pair).all(axis=1)
     false_tensor = torch.tensor([False], dtype=torch.bool, device=ids.device)
-    is_first_in_pair = torch.cat((is_first_in_pair, false_tensor))
+    is_pair_first = torch.cat((is_pair, false_tensor))
     # create a mask for the second element of every matching pair
-    is_second_in_pair = is_first_in_pair.roll(1)
+    is_pair_second = is_pair_first.roll(1)
     # each token can only belong to one pair
-    is_first_in_pair &= ~is_second_in_pair
-    is_second_in_pair = is_first_in_pair.roll(1)
+    is_pair_first &= ~is_pair_second
+    is_pair_second = is_pair_first.roll(1)
     # change the first element of every matching pair to the new token
-    ids[is_first_in_pair] = idx
+    ids[is_pair_first] = idx
     # remove the second element of every matching pair
-    ids = ids[~is_second_in_pair]
+    ids = ids[~is_pair_second]
     return ids
 
 # first two helper functions...

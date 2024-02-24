@@ -29,6 +29,8 @@ t1 = time.time()
 
 print(f"Training took {t1 - t0:.2f} seconds")
 
+print(len(tokenizer.merges), "merges")
+
 print("Testing the model")
 assert(tokenizer.decode(tokenizer.encode(text)) == text)
 print("Success")
