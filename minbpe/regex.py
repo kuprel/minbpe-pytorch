@@ -91,67 +91,48 @@ class RegexTokenizer(Tokenizer):
         text = text_bytes.decode("utf-8", errors="replace")
         return text
 
-    def _encode_chunk(self, text_bytes):
-        # return the token ids
-        # let's begin. first, convert all bytes to integers in range 0..255
-        ids = list(text_bytes)
-        if len(self.merges) == 0:
-            return ids
-
-        int_type = torch.int16 if len(self.merges) <= 2**15 else torch.int32
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        ids = torch.tensor(ids, dtype=int_type, device=device)
-
-        merges = sorted(list(self.merges), key=lambda p: self.merges[p])
-        merges = torch.tensor(merges, dtype=int_type, device=device)
-
-        while len(ids) >= 2:
-            # find the pair with the lowest merge index
-            pairs = torch.stack((ids[:-1], ids[1:]), dim=1)
-            unique: Tensor = torch.unique(pairs, dim=0)
-
-            is_present = (merges[:, None] == unique[None]).all(-1).any(-1)
-            if not is_present.any():
-                break # nothing else can be merged anymore
-
-            # otherwise let's merge the best pair (lowest merge index)
-            pair_index = is_present.nonzero()[0]
-            pair = merges[pair_index]
-            idx = pair_index.to(ids.dtype) + 256
-            ids = merge(ids, pair, idx)
-
-        return ids.cpu().tolist()
-
-    # def _encode_chunk(self, text_bytes):
-    #     # return the token ids
-    #     # let's begin. first, convert all bytes to integers in range 0..255
-    #     ids = list(text_bytes)
-    #     while len(ids) >= 2:
-    #         # find the pair with the lowest merge index
-    #         stats = get_stats(ids)
-    #         pair = min(stats, key=lambda p: self.merges.get(p, float("inf")))
-    #         # subtle: if there are no more merges available, the key will
-    #         # result in an inf for every single pair, and the min will be
-    #         # just the first pair in the list, arbitrarily
-    #         # we can detect this terminating case by a membership check
-    #         if pair not in self.merges:
-    #             break # nothing else can be merged anymore
-    #         # otherwise let's merge the best pair (lowest merge index)
-    #         idx = self.merges[pair]
-    #         ids = merge_original(ids, pair, idx)
-    #     return ids
+    def pre_encode(self, text):
+        # split text into chunks of text by categories defined in regex pattern
+        text_chunks = re.findall(self.compiled_pattern, text)
+        chunks_bytes = [chunk.encode("utf-8") for chunk in text_chunks]
+        return chunks_bytes
 
     def encode_ordinary(self, text):
         """Encoding that ignores any special tokens."""
-        # split text into chunks of text by categories defined in regex pattern
-        text_chunks = re.findall(self.compiled_pattern, text)
+        chunks_bytes = self.pre_encode(text)
         # all chunks of text are encoded separately, then results are joined
-        ids = []
-        for chunk in text_chunks:
-            chunk_bytes = chunk.encode("utf-8") # raw bytes
-            chunk_ids = self._encode_chunk(chunk_bytes)
-            ids.extend(chunk_ids)
-        return ids
+        ids_all = []
+        for chunk_bytes in chunks_bytes:
+
+            ids = list(chunk_bytes)
+            if len(self.merges) == 0:
+                ids_all.extend(ids)
+                continue
+
+            int_type = torch.int16 if len(self.merges) <= 2**15 else torch.int32
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            ids = torch.tensor(ids, dtype=int_type, device=device)
+
+            merges = sorted(list(self.merges), key=lambda p: self.merges[p])
+            merges = torch.tensor(merges, dtype=int_type, device=device)
+
+            while len(ids) >= 2:
+                # find the pair with the lowest merge index
+                pairs = torch.stack((ids[:-1], ids[1:]), dim=1)
+                unique: Tensor = torch.unique(pairs, dim=0)
+
+                is_present = (merges[:, None] == unique[None]).all(-1).any(-1)
+                if not is_present.any():
+                    break # nothing else can be merged anymore
+
+                # otherwise let's merge the best pair (lowest merge index)
+                pair_index = is_present.nonzero()[0]
+                pair = merges[pair_index]
+                idx = pair_index.to(ids.dtype) + 256
+                ids = merge(ids, pair, idx)
+
+            ids_all.extend(ids.cpu().tolist())
+        return ids_all
 
     def encode(self, text, allowed_special="none_raise"):
         """
