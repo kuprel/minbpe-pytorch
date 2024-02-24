@@ -105,22 +105,25 @@ class BasicTokenizer:
         false_tensor = torch.tensor([False], dtype=torch.bool, device=device)
 
         for i in range(num_merges):
+            # determine the most common pair to merge next
             pairs = torch.stack((ids[:-1], ids[1:]), dim=1)
             unique, counts = torch.unique(pairs, return_counts=True, dim=0)
             pair_index = torch.argmax(counts)
-            pair = unique[pair_index]
-            count = counts[pair_index]
-
-            # create a mask for the pair
-            mask = torch.all(pairs == pair, dim=1)
-            # append a False to the mask to make it the same length as ids
-            mask = torch.cat((mask, false_tensor))
-            # change the first element of every occurrence of the pair to the new id
-            ids[mask] = i + 256
-            # remove the second element of every occurrence of the pair
-            ids = ids[~torch.roll(mask, 1, 0)]
-
+            pair, count = unique[pair_index], counts[pair_index]
             merges[i] = pair
+
+            # merge the pair
+            # create a mask for the first element of every matching pair
+            is_first_in_pair: torch.Tensor = torch.all(pairs == pair, axis=1)
+            is_first_in_pair = torch.cat((is_first_in_pair, false_tensor))
+            # create a mask for the second element of every matching pair
+            is_second_in_pair = torch.roll(is_first_in_pair, 1, 0)
+            # each token can only belong to one pair
+            is_first_in_pair &= ~is_second_in_pair
+            # change the first element of every occurrence of the pair to the new id
+            ids[is_first_in_pair] = i + 256
+            # remove the second element of every occurrence of the pair
+            ids = ids[~is_second_in_pair]
 
             if verbose:
                 print(f"merge {i+1}/{num_merges}: {tuple(pair.tolist())} -> {i + 256} had {count} occurrences")

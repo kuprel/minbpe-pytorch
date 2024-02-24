@@ -11,6 +11,7 @@ This script is contained in `train_pytorch.py`
 ```python
 import os
 import time
+import torch
 from minbpe import BasicTokenizer
 
 # open some text and train a vocab of 512 tokens
@@ -23,7 +24,9 @@ t0 = time.time()
 
 # construct the Tokenizer object and kick off verbose training
 tokenizer = BasicTokenizer()
-tokenizer.train_pytorch(text, 512, verbose=True, device="cuda")
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Training with {device}")
+tokenizer.train_pytorch(text, 512, verbose=True, device=device)
 # writes two files in the models directory: name.model, and name.vocab
 prefix = os.path.join("models", "basic")
 tokenizer.save(prefix)
@@ -39,29 +42,67 @@ assert(tok.decode(tok.encode(text)) == text)
 print("Success")
 ```
 
-## Repeated Characters Bug
+## Implementation
 
-The `merge` method is vectorized in PyTorch as follows:
+The `train_pytorch` method is implemented in `minbpe.py` as follows:
 
 ```python
-# create a mask for the pair
-mask = torch.all(pairs == pair, dim=1)
-# append a False to the mask to make it the same length as ids
-mask = torch.cat((mask, torch.tensor([False]).cuda()))
-# change the first element of every occurrence of the pair to the new id
-ids[mask] = i + 256
-# remove the second element of every occurrence of the pair
-ids = ids[~torch.roll(mask, 1, 0)]
-```
+def train_pytorch(self, text: str, vocab_size: int, verbose=False, device='cuda'):
+    assert vocab_size >= 256
+    num_merges = vocab_size - 256
 
-This results in undesired behavior when a character is repeated more than 2 times.  For example, 'aaa' is not handled properly since there are 2 pairs of 'aa' in the triple, (aa)a and a(aa).  What happens is that all repeated characters are replaced with one token, i.e if X = aa then aaa -> X not Xa.  This bug doesn't seem to have much effect on training the vocab though.
+    # input text preprocessing
+    text_bytes = text.encode("utf-8") # raw bytes
+    ids = list(text_bytes) # list of integers in range 0..255
+
+    int_type = torch.int16 if vocab_size <= 2**15 else torch.int32
+    ids = torch.tensor(ids, dtype=int_type, device=device)
+    merges = torch.zeros((num_merges, 2), dtype=int_type, device=device)
+    false_tensor = torch.tensor([False], dtype=torch.bool, device=device)
+
+    for i in range(num_merges):
+        # determine the most common pair to merge next
+        pairs = torch.stack((ids[:-1], ids[1:]), dim=1)
+        unique, counts = torch.unique(pairs, return_counts=True, dim=0)
+        pair_index = torch.argmax(counts)
+        pair, count = unique[pair_index], counts[pair_index]
+        merges[i] = pair
+
+        # merge the pair
+        # create a mask for the first element of every matching pair
+        is_first_in_pair: torch.Tensor = torch.all(pairs == pair, axis=1)
+        is_first_in_pair = torch.cat((is_first_in_pair, false_tensor))
+        # create a mask for the second element of every matching pair
+        is_second_in_pair = torch.roll(is_first_in_pair, 1, 0)
+        # each token can only belong to one pair
+        is_first_in_pair &= ~is_second_in_pair
+        # change the first element of every occurrence of the pair to the new id
+        ids[is_first_in_pair] = i + 256
+        # remove the second element of every occurrence of the pair
+        ids = ids[~is_second_in_pair]
+
+        if verbose:
+            print(f"merge {i+1}/{num_merges}: {tuple(pair.tolist())} -> {i + 256} had {count} occurrences")
+
+    merges = merges.cpu().numpy()
+    merges = [tuple(pair) for pair in merges]
+
+    self.merges = {pair: j + 256 for j, pair in enumerate(merges)}
+
+    vocab = {idx: bytes([idx]) for idx in range(256)} # int -> bytes
+    for i in range(num_merges):
+        idx = 256 + i
+        pair = merges[i]
+        vocab[idx] = vocab[pair[0]] + vocab[pair[1]]
+        if verbose:
+            print(f"merge {i+1}/{num_merges}: {pair} -> {idx} ({vocab[idx]})")
+    self.vocab = vocab
+```
 
 ## TODO
 
-- Train on Project Gutenberg
-- Add PyTorch support for `encode` method
+- Add `encode_pytorch` method
 - Add MPS device support for MacBooks, currently breaks for `torch.unique`
-- Fix repeated characters bug?
 
 ## License
 
