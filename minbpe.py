@@ -2,7 +2,7 @@ import unicodedata
 import torch
 from torch import Tensor
 
-def merge(ids: Tensor, pair: Tensor, idx: int, is_train: bool):
+def merge(ids: Tensor, pair: Tensor, idx: int, is_encode=False):
     """
     In the list of integers (ids), replace all consecutive occurrences
     of pair with the new integer token idx
@@ -15,8 +15,8 @@ def merge(ids: Tensor, pair: Tensor, idx: int, is_train: bool):
     is_pair_first = torch.cat((is_pair, false_tensor))
     # create a mask for the second element of every matching pair
     is_pair_second = is_pair_first.roll(1)
-    # each token can only belong to one pair
-    if not is_train:
+    if is_encode:
+        # each token can only belong to one pair for encoding
         is_pair_first &= ~is_pair_second
         is_pair_second = is_pair_first.roll(1)
     # change the first element of every matching pair to the new token
@@ -124,7 +124,7 @@ class BasicTokenizer:
             pair_index = is_present.nonzero()[0]
             pair = merges[pair_index]
             idx = pair_index.to(ids.dtype) + 256
-            ids = merge(ids, pair, idx)
+            ids = merge(ids, pair, idx, is_encode=True)
 
         return ids.cpu().tolist()
 
