@@ -104,16 +104,13 @@ class RegexTokenizer(Tokenizer):
         int_type = torch.int16 if len(self.merges) <= 2**15 else torch.int32
         device = "cuda" if torch.cuda.is_available() else "cpu"
         ids = [list(chunk_bytes) for chunk_bytes in chunks]
-
         if len(self.merges) == 0:
             return sum(ids, [])
+        merges = sorted(list(self.merges), key=lambda p: self.merges[p])
+        merges = torch.tensor(merges, dtype=int_type, device=device)
 
         for i, chunk_ids in enumerate(ids):
             chunk_ids = torch.tensor(chunk_ids, dtype=int_type, device=device)
-
-            merges = sorted(list(self.merges), key=lambda p: self.merges[p])
-            merges = torch.tensor(merges, dtype=int_type, device=device)
-
             while len(chunk_ids) >= 2:
                 # find the pair with the lowest merge index
                 pairs = torch.stack((chunk_ids[:-1], chunk_ids[1:]), dim=1)
