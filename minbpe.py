@@ -117,10 +117,10 @@ class BasicTokenizer:
             is_first_in_pair = torch.all(pairs == pair, axis=1)
             is_first_in_pair = torch.cat((is_first_in_pair, false_tensor))
             # create a mask for the second element of every matching pair
-            is_second_in_pair = torch.roll(is_first_in_pair, 1, 0)
+            is_second_in_pair = is_first_in_pair.roll(1)
             # each token can only belong to one pair
             is_first_in_pair &= ~is_second_in_pair
-            is_second_in_pair = torch.roll(is_first_in_pair, 1, 0)
+            is_second_in_pair = is_first_in_pair.roll(1)
             # change the first element of every matching pair to the new token
             ids[is_first_in_pair] = i + 256
             # remove the second element of every matching pair
