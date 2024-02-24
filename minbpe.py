@@ -77,7 +77,7 @@ class BasicTokenizer:
             pair, count = unique[pair_index], counts[pair_index]
 
             idx = i + 256
-            ids = merge(ids, pair, idx, is_train=True)
+            ids = merge(ids, pair, idx, is_encode=False)
 
             pair = tuple(pair.tolist())
 
