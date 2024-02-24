@@ -6,7 +6,7 @@ This adds PyTorch/CUDA training support to Andrej Karpathy's [minbpe](https://gi
 
 ## Usage
 
-This script is contained in `train_pytorch.py`
+This script is contained in `train.py`
 
 ```python
 import os
@@ -36,74 +36,14 @@ t1 = time.time()
 print(f"Training took {t1 - t0:.2f} seconds")
 
 print("Testing the model")
-tok = BasicTokenizer()
-tok.load(prefix + ".model")
-assert(tok.decode(tok.encode(text)) == text)
+assert(tokenizer.decode(tokenizer.encode_pytorch(text)) == text)
 print("Success")
-```
-
-## Implementation
-
-The `train_pytorch` method is implemented in `minbpe.py` as follows:
-
-```python
-def train_pytorch(self, text: str, vocab_size: int, verbose=False, device='cuda'):
-    assert vocab_size >= 256
-    num_merges = vocab_size - 256
-
-    # input text preprocessing
-    text_bytes = text.encode("utf-8") # raw bytes
-    ids = list(text_bytes) # list of integers in range 0..255
-
-    int_type = torch.int16 if vocab_size <= 2**15 else torch.int32
-    ids = torch.tensor(ids, dtype=int_type, device=device)
-    merges = torch.zeros((num_merges, 2), dtype=int_type, device=device)
-    false_tensor = torch.tensor([False], dtype=torch.bool, device=device)
-
-    for i in range(num_merges):
-        # determine the most common pair to merge next
-        pairs = torch.stack((ids[:-1], ids[1:]), dim=1)
-        unique, counts = torch.unique(pairs, return_counts=True, dim=0)
-        pair_index = torch.argmax(counts)
-        pair, count = unique[pair_index], counts[pair_index]
-        merges[i] = pair
-
-        # merge the pair
-        # create a mask for the first element of every matching pair
-        is_first_in_pair = torch.all(pairs == pair, axis=1)
-        is_first_in_pair = torch.cat((is_first_in_pair, false_tensor))
-        # create a mask for the second element of every matching pair
-        is_second_in_pair = torch.roll(is_first_in_pair, 1, 0)
-        # each token can only belong to one pair
-        is_first_in_pair &= ~is_second_in_pair
-        is_second_in_pair = torch.roll(is_first_in_pair, 1, 0)
-        # change the first element of every matching pair to the new token
-        ids[is_first_in_pair] = i + 256
-        # remove the second element of every matching pair
-        ids = ids[~is_second_in_pair]
-
-        if verbose:
-            print(f"merge {i+1}/{num_merges}: {tuple(pair.tolist())} -> {i + 256} had {count} occurrences")
-
-    merges = merges.cpu().numpy()
-    merges = [tuple(pair) for pair in merges]
-
-    self.merges = {pair: j + 256 for j, pair in enumerate(merges)}
-
-    vocab = {idx: bytes([idx]) for idx in range(256)} # int -> bytes
-    for i in range(num_merges):
-        idx = 256 + i
-        pair = merges[i]
-        vocab[idx] = vocab[pair[0]] + vocab[pair[1]]
-        if verbose:
-            print(f"merge {i+1}/{num_merges}: {pair} -> {idx} ({vocab[idx]})")
-    self.vocab = vocab
 ```
 
 ## TODO
 
-- Add `encode_pytorch` method
-- Add MPS device support for MacBooks, currently breaks for `torch.unique`
+- Support MPS device for MacBooks, currently breaks for `torch.unique`
+- Support `RegexTokenizer` and `GPT4Tokenizer`
 
 ## License
 
