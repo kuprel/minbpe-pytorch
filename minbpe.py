@@ -121,8 +121,11 @@ class BasicTokenizer:
             pair_index = is_present.nonzero()[0]
             pair = merges[pair_index]
 
-            ids = merge(ids, pair, pair_index + 256)
-        return ids.cpu().tolist()
+            idx = pair_index.to(ids.dtype) + 25
+            ids = merge(ids, pair, idx)
+
+        ids = ids.cpu().tolist()
+        return ids
 
     def _build_vocab(self):
         # vocab is simply and deterministically derived from merges
