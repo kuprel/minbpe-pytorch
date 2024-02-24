@@ -78,7 +78,6 @@ class BasicTokenizer:
             if verbose:
                 print(f"merge {i+1}/{num_merges}: {tuple(pair.tolist())} -> {i + 256} had {count} occurrences")
 
-        self.merges_tensor = merges
         merges = merges.cpu().numpy()
         merges = [tuple(pair) for pair in merges]
 
@@ -109,12 +108,14 @@ class BasicTokenizer:
         int_type = torch.int16 if len(self.merges) <= 2**15 else torch.int32
         ids = torch.tensor(ids, dtype=int_type, device=device)
 
+        merges = list(self.merges.keys())
+        merges = torch.tensor(merges, dtype=int_type, device=device)
+
         while len(ids) >= 2:
             # find the pair with the lowest merge index
             pairs = torch.stack((ids[:-1], ids[1:]), dim=1)
             unique: Tensor = torch.unique(pairs, dim=0)
 
-            merges = self.merges_tensor
             is_present = (merges[:, None] == unique[None]).all(-1).any(-1)
             if not is_present.any():
                 break # nothing else can be merged anymore
