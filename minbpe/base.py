@@ -1,41 +1,44 @@
+"""
+Contains the base Tokenizer class and a few common helper functions.
+The base class also contains the (common) save/load functionality.
+It would be possible to be a lot more strict about the interface and
+e.g. isolating all regex/pattern parts to the RegexTokenizer, but
+some concessions are made for simplicity.
+"""
 import unicodedata
-import torch
-from torch import Tensor
 
-def merge(ids: Tensor, pair: Tensor, idx: int):
+# -----------------------------------------------------------------------------
+# a few helper functions useful for both BasicTokenizer and RegexTokenizer
+
+def get_stats(ids, counts=None):
+    """
+    Given a list of integers, return a dictionary of counts of consecutive pairs
+    Example: [1, 2, 3, 1, 2] -> {(1, 2): 2, (2, 3): 1, (3, 1): 1}
+    Optionally allows to update an existing dictionary of counts
+    """
+    counts = {} if counts is None else counts
+    for pair in zip(ids, ids[1:]): # iterate consecutive elements
+        counts[pair] = counts.get(pair, 0) + 1
+    return counts
+
+
+def merge(ids, pair, idx):
     """
     In the list of integers (ids), replace all consecutive occurrences
     of pair with the new integer token idx
     Example: ids=[1, 2, 3, 1, 2], pair=(1, 2), idx=4 -> [4, 3, 4]
     """
-
-    # create a mask for the first element i of every matching pair (i, j)
-    pairs = torch.stack((ids[:-1], ids[1:]), dim=1)
-    is_pair = (pairs == pair).all(axis=1)
-    false_tensor = torch.tensor([False], dtype=torch.bool, device=ids.device)
-    is_pair_i = torch.cat((is_pair, false_tensor))
-
-    # create a mask for the second element j of every matching pair (i, j)
-    is_pair_j = is_pair_i.roll(1)
-
-    # handle overlapping pairs for repeated tokens
-    while True:
-        is_overlap = (is_pair_i & is_pair_j).any()
-        if not is_overlap:
-            break # no overlapping pairs
-
-        # remove first overlapping pairs in repeated sequences
-        is_first = (is_pair_i & is_pair_j).int().diff() == 1
-        is_first = torch.cat((false_tensor, is_first))
-        is_pair_i &= ~is_first
-        is_pair_j = is_pair_i.roll(1)
-
-    # change the first element i of every matching pair (i, j) to the new token
-    ids[is_pair_i] = idx
-
-    # remove the second element j of every matching pair (i, j)
-    ids = ids[~is_pair_j]
-    return ids
+    newids = []
+    i = 0
+    while i < len(ids):
+        # if not at the very last position AND the pair matches, replace it
+        if ids[i] == pair[0] and i < len(ids) - 1 and ids[i+1] == pair[1]:
+            newids.append(idx)
+            i += 2
+        else:
+            newids.append(ids[i])
+            i += 1
+    return newids
 
 # first two helper functions...
 def replace_control_characters(s: str) -> str:
@@ -57,7 +60,11 @@ def render_token(t: bytes) -> str:
     s = replace_control_characters(s)
     return s
 
-class BasicTokenizer:
+# -----------------------------------------------------------------------------
+# the base Tokenizer class
+
+class Tokenizer:
+    """Base class for Tokenizers"""
 
     def __init__(self):
         # default: vocab size of 256 (all bytes), no merges, no patterns
@@ -66,81 +73,17 @@ class BasicTokenizer:
         self.special_tokens = {} # str -> int, e.g. {'<|endoftext|>': 100257}
         self.vocab = self._build_vocab() # int -> bytes
 
-    def train(self, text: str, vocab_size: int, verbose=False, device='cuda'):
-        assert vocab_size >= 256
-        num_merges = vocab_size - 256
+    def train(self, text, vocab_size, verbose=False):
+        # Tokenizer can train a vocabulary of size vocab_size from text
+        raise NotImplementedError
 
-        # input text preprocessing
-        text_bytes = text.encode("utf-8") # raw bytes
-        ids = list(text_bytes) # list of integers in range 0..255
-
-        # iteratively merge the most common pairs to create new tokens
-        merges = {} # (int, int) -> int
-        vocab = {idx: bytes([idx]) for idx in range(256)} # int -> bytes
-
-        int_type = torch.int16 if vocab_size <= 2**15 else torch.int32
-        ids = torch.tensor(ids, dtype=int_type, device=device)
-
-        for i in range(num_merges):
-            # determine the most common pair to merge next
-            pairs = torch.stack((ids[:-1], ids[1:]), dim=1)
-            unique, counts = torch.unique(pairs, return_counts=True, dim=0)
-            pair_index = torch.argmax(counts)
-            pair, count = unique[pair_index], counts[pair_index]
-
-            idx = i + 256
-            ids = merge(ids, pair, idx)
-
-            pair = tuple(pair.tolist())
-
-            # save the merge
-            merges[pair] = idx
-            vocab[idx] = vocab[pair[0]] + vocab[pair[1]]
-
-            if verbose:
-                print(f"merge {i+1}/{num_merges}: {pair} -> {idx} ({vocab[idx]}) had {count} occurrences")
-
-        # save class variables
-        self.merges = merges # used in encode()
-        self.vocab = vocab   # used in decode()
+    def encode(self, text):
+        # Tokenizer can encode a string into a list of integers
+        raise NotImplementedError
 
     def decode(self, ids):
-        # given ids (list of integers), return Python string
-        text_bytes = b"".join(self.vocab[idx] for idx in ids)
-        text = text_bytes.decode("utf-8", errors="replace")
-        return text
-
-    def encode(self, text: str, device: str = None):
-        if device is None:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-        # given a string text, return the token ids
-        text_bytes = text.encode("utf-8") # raw bytes
-        ids = list(text_bytes) # list of integers in range 0..255
-        if len(self.merges) == 0:
-            return ids
-
-        int_type = torch.int16 if len(self.merges) <= 2**15 else torch.int32
-        ids = torch.tensor(ids, dtype=int_type, device=device)
-
-        merges = sorted(list(self.merges), key=lambda p: self.merges[p])
-        merges = torch.tensor(merges, dtype=int_type, device=device)
-
-        while len(ids) >= 2:
-            # find the pair with the lowest merge index
-            pairs = torch.stack((ids[:-1], ids[1:]), dim=1)
-            unique: Tensor = torch.unique(pairs, dim=0)
-
-            is_present = (merges[:, None] == unique[None]).all(-1).any(-1)
-            if not is_present.any():
-                break # nothing else can be merged anymore
-
-            # otherwise let's merge the best pair (lowest merge index)
-            pair_index = is_present.nonzero()[0]
-            pair = merges[pair_index]
-            idx = pair_index.to(ids.dtype) + 256
-            ids = merge(ids, pair, idx)
-
-        return ids.cpu().tolist()
+        # Tokenizer can decode a list of integers into a string
+        raise NotImplementedError
 
     def _build_vocab(self):
         # vocab is simply and deterministically derived from merges
