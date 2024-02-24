@@ -20,7 +20,7 @@ t0 = time.time()
 tokenizer = BasicTokenizer()
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Training with {device}")
-tokenizer.train_pytorch(text, 512, verbose=True, device=device)
+tokenizer.train(text, 512, verbose=True, device=device)
 # writes two files in the models directory: name.model, and name.vocab
 prefix = os.path.join("models", "basic")
 tokenizer.save(prefix)

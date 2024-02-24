@@ -53,7 +53,7 @@ class BasicTokenizer:
         self.special_tokens = {} # str -> int, e.g. {'<|endoftext|>': 100257}
         self.vocab = self._build_vocab() # int -> bytes
 
-    def train_pytorch(self, text: str, vocab_size: int, verbose=False, device='cuda'):
+    def train(self, text: str, vocab_size: int, verbose=False, device='cuda'):
         assert vocab_size >= 256
         num_merges = vocab_size - 256
 
@@ -117,12 +117,14 @@ class BasicTokenizer:
             merges = self.merges_tensor
             is_present = (merges[:, None] == unique[None]).all(-1).any(-1)
             if not is_present.any():
-                break
+                break # nothing else can be merged anymore
+
+            # otherwise let's merge the best pair (lowest merge index)
             pair_index = is_present.nonzero()[0]
             pair = merges[pair_index]
-
             idx = pair_index.to(ids.dtype) + 256
             ids = merge(ids, pair, idx)
+
         return ids.cpu().tolist()
 
     def _build_vocab(self):
