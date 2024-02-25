@@ -7,7 +7,7 @@ data_url = 'https://www.cs.cmu.edu/~enron/enron_mail_20150507.tar.gz'
 
 os.system(f'wget {data_url} -O enron.tar.gz')
 print('Extracting...')
-os.system('tar -xvf enron.tar.gz')
+os.system('tar -xf enron.tar.gz')
 os.remove('enron.tar.gz')
 os.rename('maildir', path_raw)
 
