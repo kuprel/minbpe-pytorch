@@ -17,9 +17,7 @@ t0 = time.time()
 
 # construct the Tokenizer object and kick off verbose training
 tokenizer = BasicTokenizer()
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Training with {device}")
-tokenizer.train(text, 512, verbose=True, device=device)
+tokenizer.train(text, 512, verbose=True)
 # writes two files in the models directory: name.model, and name.vocab
 prefix = os.path.join("models", "basic")
 tokenizer.save(prefix)

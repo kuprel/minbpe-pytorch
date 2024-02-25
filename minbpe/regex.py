@@ -35,7 +35,7 @@ class RegexTokenizer(Tokenizer):
         self.special_tokens = {}
         self.inverse_special_tokens = {}
 
-    def train(self, text, vocab_size, verbose=False, device='cpu'):
+    def train(self, text, vocab_size, verbose=False):
         assert vocab_size >= 256
         num_merges = vocab_size - 256
 
