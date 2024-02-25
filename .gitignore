@@ -4,5 +4,4 @@ models/**/*
 *.pytest_cache
 *.model
 *.vocab
-enron.txt
-parse_enron.py
+tests/enron*
