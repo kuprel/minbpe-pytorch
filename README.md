@@ -6,7 +6,19 @@ This adds PyTorch/CUDA training and encoding support to Andrej Karpathy's [minbp
 
 ## Quick Start
 
-Run `python get_enron_emails.py` to download the enron emails dataset.  A 308 MB `enron.txt` file will be saved in the `tests` directory.  Then run `python train.py` to train a `BasicTokenizer` on this text.  The model will be saved in the `models` directory.
+Download Enron emails and save a 308MB text file to `tests/enron.txt`:
+
+```bash
+python get_enron_emails.py
+```
+
+Train a `BasicTokenizer` on the large text file:
+
+```bash
+python train.py
+```
+
+The model will be saved in the `models` directory.
 
 ## TODO
 
