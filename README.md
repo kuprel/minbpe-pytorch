@@ -6,6 +6,12 @@ This adds PyTorch/CUDA training and encoding support to Andrej Karpathy's [minbp
 
 ## Quick Start
 
+Install requirements:
+
+```bash
+pip install -r requirements.txt
+```
+
 Download Enron emails and save a 308MB text file to `tests/enron.txt`:
 
 ```bash
@@ -19,6 +25,12 @@ python train.py
 ```
 
 The model will be saved in the `models` directory.
+
+## Run Tests
+
+```bash
+pytest -v .
+```
 
 ## TODO
 
