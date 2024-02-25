@@ -36,8 +36,9 @@ $ pytest -v .
 
 ## todo
 
+- Speed up `encode` method for `RegexTokenizer`
+- Implement `train` method for `RegexTokenizer`
 - Support MPS device for MacBooks, currently breaks for `torch.unique`
-- Implement `RegexTokenizer` and `GPT4Tokenizer`
 
 ## License
 
