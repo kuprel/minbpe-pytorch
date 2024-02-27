@@ -17,7 +17,7 @@ print(len(files), 'files')
 
 text = ""
 for file in files:
-    with open(file, 'r', errors='ignore') as f:
+    with open(file, 'r') as f:
         text += f.read() + '\n'
 
 with open(path_txt, 'w') as f:
